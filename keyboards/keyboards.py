@@ -3,6 +3,7 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemo
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📊 Мой профиль")],
+        [KeyboardButton(text="🍽 Добавить рацион (ИИ помощник)")],
         [KeyboardButton(text="✏️ Изменить данные")]
     ],
     resize_keyboard=True
