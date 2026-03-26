@@ -1,17 +1,22 @@
 import asyncio
+import logging
+logging.basicConfig(level=logging.INFO)
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
+
 from config_reader import config
-from keyboards.keyboards import main_menu, goal_keyboard, gender_keyboard, activity_keyboard
+from handlers.user import router
 
 
 
-bot = Bot(token=config.bot_token.get_secret_value())
-
-storage = MemoryStorage()
-dp = Dispatcher(storage=storage)
-    
 async def main():
+    bot = Bot(token=config.bot_token.get_secret_value())
+
+    dp = Dispatcher(storage=MemoryStorage())
+
+    # подключаем роутер
+    dp.include_router(router)
+
     await dp.start_polling(bot)
 
 
