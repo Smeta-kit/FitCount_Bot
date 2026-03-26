@@ -1,16 +1,24 @@
 import json
 import os
 
-FILE_PATH = "data/users.json"
+FILE_PATH = "src/users.json"
 
 
-# загрузка всех пользователей
+import json
+import os
+
+FILE_PATH = "src/users.json"
+
+
 def load_users():
     if not os.path.exists(FILE_PATH):
         return {}
 
-    with open(FILE_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
+    try:
+        with open(FILE_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except json.JSONDecodeError:
+        return {}
 
 
 # сохранение всех пользователей
