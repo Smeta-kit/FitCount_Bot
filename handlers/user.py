@@ -2,6 +2,10 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+import requests
+import json
+import os
+from dotenv import load_dotenv
 
 from src.storage import get_user, save_user
 from state.state import UserData
@@ -14,6 +18,9 @@ from keyboards.keyboards import (
 
 router = Router()
 
+load_dotenv()
+
+API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 # старт
 @router.message(Command("start"))
@@ -227,3 +234,53 @@ async def show_profile(message: types.Message):
         f"🧈 Жиры: {user['fat']} г\n"
         f"🍞 Углеводы: {user['carbs']} г"
     )
+    
+# Генерация ответа 
+def generate_response(prompt):
+    try:
+        response = requests.post(
+            url="https://openrouter.ai/api/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {API_KEY}",
+                "Content-Type": "application/json",
+            },
+            data=json.dumps({
+            "model": "stepfun/step-3.5-flash:free",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You're calculating the KBZhU of foods. Answer in the following format: Белки = г, Жиры = г, Углеводы = г, Калории = ккал;each element on a new line, nothing extra."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.3
+        })
+        )
+
+        data = response.json()
+
+        return data["choices"][0]["message"]["content"]
+
+
+    except Exception as e:
+        print("Ошибка:", e)
+        return "⚠️ Произошла ошибка"
+
+@router.message(lambda message: message.text == "🍽 Добавить рацион (ИИ помощник)")
+async def ask_food(message: types.Message):
+    await message.answer("Напишите, что вы съели (например: рис 200, курица 150)")
+    
+@router.message()
+async def echo_handler(message: types.Message):
+
+    msg = await message.answer("Считаю КБЖУ ⌛")
+
+    response = generate_response(message.text)
+
+    await msg.delete()
+
+    await message.answer(response)
+    
