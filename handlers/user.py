@@ -3,6 +3,7 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
+from src.storage import get_user, save_user
 from state.state import UserData
 from keyboards.keyboards import (
     gender_keyboard,
@@ -10,7 +11,6 @@ from keyboards.keyboards import (
     goal_keyboard,
     main_menu
 )
-from src.storage import save_user
 
 router = Router()
 
@@ -20,9 +20,7 @@ router = Router()
 async def cmd_start(message: types.Message):
 
     kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="Введите свои данные")]
-        ],
+        keyboard=[[KeyboardButton(text="Введите свои данные")]],
         resize_keyboard=True
     )
 
@@ -51,14 +49,10 @@ async def start_data_input(message: types.Message, state: FSMContext):
 async def process_gender(message: types.Message, state: FSMContext):
 
     if message.text.lower() not in ['мужской', 'женский', 'м', 'ж']:
-        await message.answer(
-            "Выберите пол используя кнопки",
-            reply_markup=gender_keyboard
-        )
+        await message.answer("Выберите пол используя кнопки", reply_markup=gender_keyboard)
         return
 
     await state.update_data(gender=message.text)
-
     await state.set_state(UserData.height)
 
     await message.answer(
@@ -73,16 +67,13 @@ async def process_height(message: types.Message, state: FSMContext):
 
     try:
         height = int(message.text)
-
         if height < 110 or height > 250:
             raise ValueError
-
     except ValueError:
         await message.answer("Введите корректный рост (110-250 см)")
         return
 
     await state.update_data(height=height)
-
     await state.set_state(UserData.weight)
 
     await message.answer("Рост сохранён!\n\nТеперь укажи вес (кг):")
@@ -94,16 +85,13 @@ async def process_weight(message: types.Message, state: FSMContext):
 
     try:
         weight = int(message.text)
-
         if weight < 30 or weight > 300:
             raise ValueError
-
     except ValueError:
         await message.answer("Введите корректный вес")
         return
 
     await state.update_data(weight=weight)
-
     await state.set_state(UserData.age)
 
     await message.answer("Вес сохранён!\n\nТеперь укажи возраст:")
@@ -115,16 +103,13 @@ async def process_age(message: types.Message, state: FSMContext):
 
     try:
         age = int(message.text)
-
         if age < 5 or age > 120:
             raise ValueError
-
     except ValueError:
         await message.answer("Введите корректный возраст")
         return
 
     await state.update_data(age=age)
-
     await state.set_state(UserData.activity)
 
     await message.answer(
@@ -149,16 +134,12 @@ async def process_activity(message: types.Message, state: FSMContext):
         return
 
     await state.update_data(activity=activity_levels[message.text])
-
     await state.set_state(UserData.goal)
 
-    await message.answer(
-        "Какая у вас цель?",
-        reply_markup=goal_keyboard
-    )
+    await message.answer("Какая у вас цель?", reply_markup=goal_keyboard)
 
 
-# ввод цели + расчёт
+# ввод цели + сохранение
 @router.message(UserData.goal)
 async def process_goal(message: types.Message, state: FSMContext):
 
@@ -173,45 +154,49 @@ async def process_goal(message: types.Message, state: FSMContext):
         return
 
     await state.update_data(goal=goals[message.text])
-
     data = await state.get_data()
 
-    gender = data["gender"].lower()
-    weight = data["weight"]
-    height = data["height"]
-    age = data["age"]
-    activity = data["activity"]
-    goal = data["goal"]
+    try:
+        gender = data["gender"].lower()
+        weight = data["weight"]
+        height = data["height"]
+        age = data["age"]
+        activity = data["activity"]
+        goal = data["goal"]
 
-    # формула Миффлина-Сан Жеора
-    if gender in ["мужской", "м"]:
-        calories = (10 * weight + 6.25 * height - 5 * age + 5) * activity
-    else:
-        calories = (10 * weight + 6.25 * height - 5 * age - 161) * activity
+        # расчёт калорий
+        if gender in ["мужской", "м"]:
+            calories = (10 * weight + 6.25 * height - 5 * age + 5) * activity
+        else:
+            calories = (10 * weight + 6.25 * height - 5 * age - 161) * activity
 
-    # корректировка под цель
-    if goal == "lose":
-        calories *= 0.8
-    elif goal == "gain":
-        calories *= 1.2
+        if goal == "lose":
+            calories *= 0.8
+        elif goal == "gain":
+            calories *= 1.2
 
-    calories = round(calories)
+        calories = round(calories)
 
-    # БЖУ
-    protein = round(1.8 * weight)
-    fat = round(weight)
-    carbs = round((calories * 0.40) / 4)
+        protein = round(1.8 * weight)
+        fat = round(weight)
+        carbs = round((calories * 0.40) / 4)
 
-    save_user(
-    message.from_user.id,
-    {
-        **data,
-        "calories": calories,
-        "protein": protein,
-        "fat": fat,
-        "carbs": carbs
-    }
-)
+        # ✅ СОХРАНЕНИЕ
+        save_user(
+            message.from_user.id,
+            {
+                **data,
+                "calories": calories,
+                "protein": protein,
+                "fat": fat,
+                "carbs": carbs
+            }
+        )
+
+    except Exception as e:
+        print("Ошибка:", e)
+        await message.answer("⚠️ Ошибка при сохранении данных")
+        return
 
     await message.answer(
         "✅ Профиль создан!\n\n"
@@ -223,3 +208,22 @@ async def process_goal(message: types.Message, state: FSMContext):
     )
 
     await state.clear()
+
+
+# профиль
+@router.message(lambda message: message.text == "📊 Мой профиль")
+async def show_profile(message: types.Message):
+
+    user = get_user(message.from_user.id)
+
+    if not user:
+        await message.answer("❌ Сначала заполните данные")
+        return
+
+    await message.answer(
+        "📊 Ваш профиль:\n\n"
+        f"🔥 Калории: {user['calories']} ккал\n\n"
+        f"🥩 Белки: {user['protein']} г\n"
+        f"🧈 Жиры: {user['fat']} г\n"
+        f"🍞 Углеводы: {user['carbs']} г"
+    )
