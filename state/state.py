@@ -9,3 +9,5 @@ class UserData(StatesGroup):
     age = State()
     activity = State()
     goal = State()
+    food = State()
+    confirm_food = State()
