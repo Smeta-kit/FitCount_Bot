@@ -37,3 +37,11 @@ goal_keyboard = ReplyKeyboardMarkup(
     resize_keyboard=True,
     one_time_keyboard=True
 )
+
+confirm_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="✅ Да"), KeyboardButton(text="❌ Нет")]
+    ],
+    resize_keyboard=True,
+    one_time_keyboard=True
+)
