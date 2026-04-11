@@ -7,18 +7,25 @@ import json
 import os
 from dotenv import load_dotenv
 
-from src.storage import get_user, save_user
-from state.state import UserData
+from src.storage import get_user, save_user, update_eaten
+from state.state import UserData 
 from keyboards.keyboards import (
     gender_keyboard,
     activity_keyboard,
     goal_keyboard,
-    main_menu
+    main_menu,
+    confirm_keyboard
 )
 
 router = Router()
 
 load_dotenv()
+
+def format_value(value, name):
+    if value >= 0:
+        return f"{name}: {value}"
+    else:
+        return f"{name}: превышено на {abs(value)}"
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 
@@ -228,12 +235,12 @@ async def show_profile(message: types.Message):
         return
 
     await message.answer(
-        "📊 Ваш профиль:\n\n"
-        f"🔥 Калории: {user['calories']} ккал\n\n"
-        f"🥩 Белки: {user['protein']} г\n"
-        f"🧈 Жиры: {user['fat']} г\n"
-        f"🍞 Углеводы: {user['carbs']} г"
-    )
+    "📊 Ваш профиль:\n\n"
+    f"🔥 {format_value(user['calories'] - user.get('eaten_calories', 0), 'Калории')} ккал\n"
+    f"🥩 {format_value(user['protein'] - user.get('eaten_protein', 0), 'Белки')} г\n"
+    f"🧈 {format_value(user['fat'] - user.get('eaten_fat', 0), 'Жиры')} г\n"
+    f"🍞 {format_value(user['carbs'] - user.get('eaten_carbs', 0), 'Углеводы')} г"
+)
     
 # Генерация ответа 
 def generate_response(prompt):
@@ -245,42 +252,123 @@ def generate_response(prompt):
                 "Content-Type": "application/json",
             },
             data=json.dumps({
-            "model": "stepfun/step-3.5-flash:free",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "You're calculating the KBZhU of foods. Answer in the following format: Белки = г, Жиры = г, Углеводы = г, Калории = ккал;each element on a new line, nothing extra."
-                },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
-            ],
-            "temperature": 0.3
-        })
+                "model": "nvidia/nemotron-3-nano-30b-a3b:free",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You're a nutritionist. Calculate your calories, fats, and carbohydrates. The answer is strictly: calories, proteins, fats, and carbohydrates (4 numbers separated by spaces)."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt
+                    }
+                ],
+                "temperature": 0.3
+            })
         )
 
         data = response.json()
 
-        return data["choices"][0]["message"]["content"]
+        print("API RESPONSE:", data)  # 🔍 для отладки
 
+        # ❗ если ошибка
+        if "error" in data:
+            return f"Ошибка API: {data['error']['message']}"
+
+        # ❗ если нет choices
+        if "choices" not in data:
+            return "⚠️ Неверный ответ от API"
+
+        return data["choices"][0]["message"]["content"]
 
     except Exception as e:
         print("Ошибка:", e)
-        return "⚠️ Произошла ошибка"
+        return "⚠️ Ошибка соединения"
+
 
 @router.message(lambda message: message.text == "🍽 Добавить рацион (ИИ помощник)")
-async def ask_food(message: types.Message):
-    await message.answer("Напишите, что вы съели (например: рис 200, курица 150)")
+async def ask_food(message: types.Message, state: FSMContext): 
+    await state.set_state(UserData.food)  
+    await message.answer("Напишите, что вы съели (например: рис 200, курица 150)")  
     
-@router.message()
-async def echo_handler(message: types.Message):
+@router.message(UserData.food)
+async def process_food(message: types.Message, state: FSMContext):
 
     msg = await message.answer("Считаю КБЖУ ⌛")
 
     response = generate_response(message.text)
 
+    if "Ошибка" in response or "⚠️" in response:
+        await message.answer(response)
+        return
+
+    try:
+        calories, protein, fat, carbs = map(int, response.split())
+    except:
+        await message.answer("❌ Не удалось распознать ответ")
+        return
+
     await msg.delete()
 
-    await message.answer(response)
+    # 💾 сохраняем временно (НЕ в БД!)
+    await state.update_data(
+        food_calories=calories,
+        food_protein=protein,
+        food_fat=fat,
+        food_carbs=carbs
+    )
+
+    await state.set_state(UserData.confirm_food)
+
+    await message.answer(
+        "🍽 Найдено:\n\n"
+        f"🔥 {calories} ккал\n"
+        f"🥩 {protein} г\n"
+        f"🧈 {fat} г\n"
+        f"🍞 {carbs} г\n\n"
+        "Добавить в рацион?",
+        reply_markup=confirm_keyboard
+    )
+
+@router.message(UserData.confirm_food)
+async def confirm_food(message: types.Message, state: FSMContext):
+
+    if message.text == "❌ Нет":
+        await message.answer("Ок, не добавляю 👌", reply_markup=main_menu)
+        await state.clear()
+        return
+
+    if message.text != "✅ Да":
+        await message.answer("Выберите вариант с кнопок")
+        return
+
+    data = await state.get_data()
+
+    calories = data["food_calories"]
+    protein = data["food_protein"]
+    fat = data["food_fat"]
+    carbs = data["food_carbs"]
+
+
+    update_eaten(message.from_user.id, calories, protein, fat, carbs)
+
+    user = get_user(message.from_user.id)
+
+    remaining_calories = user["calories"] - user.get("eaten_calories", 0)
+    remaining_protein = user["protein"] - user.get("eaten_protein", 0)
+    remaining_fat = user["fat"] - user.get("eaten_fat", 0)
+    remaining_carbs = user["carbs"] - user.get("eaten_carbs", 0)
+    
+    
+    await message.answer(
+    "✅ Добавлено!\n\n"
+    "📊 Баланс:\n"
+    f"🔥 {format_value(remaining_calories, 'Калории')} ккал\n"
+    f"🥩 {format_value(remaining_protein, 'Белки')} г\n"
+    f"🧈 {format_value(remaining_fat, 'Жиры')} г\n"
+    f"🍞 {format_value(remaining_carbs, 'Углеводы')} г",
+    reply_markup=main_menu
+    )
+
+    await state.clear()
     
