@@ -315,23 +315,36 @@ async def process_food(message: types.Message, state: FSMContext):
         food_calories=calories,
         food_protein=protein,
         food_fat=fat,
-        food_carbs=carbs
+        food_carbs=carbs,
+        food_message_id=sent_msg.message_id
     )
 
     await state.set_state(UserData.confirm_food)
 
-    await message.answer(
-        "🍽 Найдено:\n\n"
-        f"🔥 {calories} ккал\n"
-        f"🥩 {protein} г\n"
-        f"🧈 {fat} г\n"
-        f"🍞 {carbs} г\n\n"
-        "Добавить в рацион?",
-        reply_markup=confirm_keyboard
-    )
+    sent_msg = await message.answer(
+    "🍽 Найдено:\n\n"
+    f"🔥 {calories} ккал\n"
+    f"🥩 {protein} г\n"
+    f"🧈 {fat} г\n"
+    f"🍞 {carbs} г\n\n"
+    "Добавить в рацион?",
+    reply_markup=confirm_keyboard
+)
 
 @router.message(UserData.confirm_food)
 async def confirm_food(message: types.Message, state: FSMContext):
+    data = await state.get_data()
+
+    msg_id = data.get("food_message_id")
+
+    if msg_id:
+        try:
+            await message.bot.delete_message(
+                chat_id=message.chat.id,
+                message_id=msg_id
+            )
+        except:
+            pass
 
     if message.text == "❌ Нет":
         await message.answer("Ок, не добавляю 👌", reply_markup=main_menu)
