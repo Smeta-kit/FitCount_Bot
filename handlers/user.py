@@ -6,6 +6,7 @@ import requests
 import json
 import os
 from dotenv import load_dotenv
+import re
 
 from src.storage import get_user, save_user, update_eaten
 from state.state import UserData 
@@ -298,28 +299,15 @@ async def process_food(message: types.Message, state: FSMContext):
 
     response = generate_response(message.text)
 
-    if "Ошибка" in response or "⚠️" in response:
-        await message.answer(response)
+    numbers = list(map(int, re.findall(r"\d+", response)))
+
+    if len(numbers) != 4:
+        await message.answer("❌ Ошибка обработки еды, попробуйте ещё раз")
         return
 
-    try:
-        calories, protein, fat, carbs = map(int, response.split())
-    except:
-        await message.answer("❌ Не удалось распознать ответ")
-        return
+    calories, protein, fat, carbs = numbers
 
     await msg.delete()
-
-    # 💾 сохраняем временно (НЕ в БД!)
-    await state.update_data(
-        food_calories=calories,
-        food_protein=protein,
-        food_fat=fat,
-        food_carbs=carbs,
-        food_message_id=sent_msg.message_id
-    )
-
-    await state.set_state(UserData.confirm_food)
 
     sent_msg = await message.answer(
     "🍽 Найдено:\n\n"
@@ -330,6 +318,16 @@ async def process_food(message: types.Message, state: FSMContext):
     "Добавить в рацион?",
     reply_markup=confirm_keyboard
 )
+    
+    await state.update_data(
+        food_calories=calories,
+        food_protein=protein,
+        food_fat=fat,
+        food_carbs=carbs,
+        food_message_id=sent_msg.message_id
+    )
+
+    await state.set_state(UserData.confirm_food)
 
 @router.message(UserData.confirm_food)
 async def confirm_food(message: types.Message, state: FSMContext):
