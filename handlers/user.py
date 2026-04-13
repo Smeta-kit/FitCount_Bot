@@ -7,8 +7,7 @@ import json
 import os
 from dotenv import load_dotenv
 import re
-
-from src.storage import get_user, save_user, update_eaten
+from src.storage import get_user, save_user, update_eaten, check_and_reset
 from state.state import UserData 
 from keyboards.keyboards import (
     gender_keyboard,
@@ -228,7 +227,7 @@ async def process_goal(message: types.Message, state: FSMContext):
 # профиль
 @router.message(lambda message: message.text == "📊 Мой профиль")
 async def show_profile(message: types.Message):
-
+    check_and_reset(message.from_user.id)
     user = get_user(message.from_user.id)
 
     if not user:
@@ -294,7 +293,7 @@ async def ask_food(message: types.Message, state: FSMContext):
     
 @router.message(UserData.food)
 async def process_food(message: types.Message, state: FSMContext):
-
+    check_and_reset(message.from_user.id)
     msg = await message.answer("Считаю КБЖУ ⌛")
 
     response = generate_response(message.text)
@@ -331,6 +330,7 @@ async def process_food(message: types.Message, state: FSMContext):
 
 @router.message(UserData.confirm_food)
 async def confirm_food(message: types.Message, state: FSMContext):
+    check_and_reset(message.from_user.id)
     data = await state.get_data()
 
     msg_id = data.get("food_message_id")
