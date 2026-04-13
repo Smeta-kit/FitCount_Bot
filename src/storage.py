@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 
 FILE_PATH = "src/users.json"
 
@@ -55,3 +56,36 @@ def update_eaten(user_id, cals, prot, fat, carbs):
     users[user_id] = user
 
     save_all_users(users)
+
+
+def save_user(user_id, data):
+    users = load_users()
+
+    users[str(user_id)] = {
+        **data,
+        "eaten_calories": 0,
+        "eaten_protein": 0,
+        "eaten_fat": 0,
+        "eaten_carbs": 0,
+        "last_update": datetime.now().strftime("%Y-%m-%d")  
+    }
+
+    save_users(users)    
+    
+def check_and_reset(user_id):
+    users = load_users()
+    user = users.get(str(user_id))
+
+    if not user:
+        return
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    if user.get("last_update") != today:
+        user["eaten_calories"] = 0
+        user["eaten_protein"] = 0
+        user["eaten_fat"] = 0
+        user["eaten_carbs"] = 0
+        user["last_update"] = today
+
+        save_users(users)
