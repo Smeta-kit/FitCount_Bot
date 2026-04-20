@@ -11,3 +11,7 @@ class UserData(StatesGroup):
     goal = State()
     food = State()
     confirm_food = State()
+    workout = State()
+    workout_day = State()
+    workout_muscle = State()
+    workout_exercises = State()
