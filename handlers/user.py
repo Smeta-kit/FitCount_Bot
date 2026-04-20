@@ -7,14 +7,15 @@ import json
 import os
 from dotenv import load_dotenv
 import re
-from src.storage import get_user, save_user, update_eaten, check_and_reset
+from src.storage import get_user, save_user, update_eaten, check_and_reset, update_streak, add_workout
 from state.state import UserData 
 from keyboards.keyboards import (
     gender_keyboard,
     activity_keyboard,
     goal_keyboard,
     main_menu,
-    confirm_keyboard
+    confirm_keyboard,
+    stop_keyboard
 )
 
 router = Router()
@@ -228,21 +229,27 @@ async def process_goal(message: types.Message, state: FSMContext):
 @router.message(lambda message: message.text == "📊 Мой профиль")
 async def show_profile(message: types.Message):
     check_and_reset(message.from_user.id)
+    
     user = get_user(message.from_user.id)
 
     if not user:
         await message.answer("❌ Сначала заполните данные")
         return
 
+    streak = user.get("streak", 0)
+    
     await message.answer(
     "📊 Ваш профиль:\n\n"
     f"🔥 {format_value(user['calories'] - user.get('eaten_calories', 0), 'Калории')} ккал\n"
     f"🥩 {format_value(user['protein'] - user.get('eaten_protein', 0), 'Белки')} г\n"
     f"🧈 {format_value(user['fat'] - user.get('eaten_fat', 0), 'Жиры')} г\n"
-    f"🍞 {format_value(user['carbs'] - user.get('eaten_carbs', 0), 'Углеводы')} г"
+    f"🍞 {format_value(user['carbs'] - user.get('eaten_carbs', 0), 'Углеводы')} г\n"
+    f"🔥 Стрик: {streak} дней\n\n"
 )
     
-# Генерация ответа 
+############################### Генерация ответа ИИшки ###############################
+
+
 def generate_response(prompt):
     try:
         response = requests.post(
@@ -380,6 +387,151 @@ async def confirm_food(message: types.Message, state: FSMContext):
     f"🍞 {format_value(remaining_carbs, 'Углеводы')} г",
     reply_markup=main_menu
     )
-
+    update_streak(message.from_user.id)
     await state.clear()
+    
+    
+    
+###################### ТРЕНЕРОВКИ ####################
+
+
+@router.message(lambda m: m.text == "➕ Добавить тренировку")
+async def start_workout(message: types.Message, state: FSMContext):
+
+    await state.set_state(UserData.workout_day)
+
+    await message.answer("Введите день тренировки (например: Понедельник)")
+    
+@router.message(UserData.workout_day)
+async def workout_day(message: types.Message, state: FSMContext):
+
+    valid_days = {
+        "понедельник": "Понедельник",
+        "вторник": "Вторник",
+        "среда": "Среда",
+        "четверг": "Четверг",
+        "пятница": "Пятница",
+        "суббота": "Суббота",
+        "воскресенье": "Воскресенье",
+
+        # сокращения 👇
+        "пн": "Понедельник",
+        "вт": "Вторник",
+        "ср": "Среда",
+        "чт": "Четверг",
+        "пт": "Пятница",
+        "сб": "Суббота",
+        "вс": "Воскресенье",
+    }
+
+    user_input = message.text.strip().lower()
+
+    if user_input not in valid_days:
+        await message.answer(
+            "❌ Введите корректный день недели\n\n"
+            "Пример: Понедельник или Пн"
+        )
+        return
+
+    day = valid_days[user_input]
+
+    user = get_user(message.from_user.id)
+
+    if user and "workouts" in user:
+        for workout in user["workouts"]:
+            if workout.startswith(day):
+                await message.answer(
+                    f"❌ Тренировка на {day} уже существует!\n"
+                    f"Выберите другой день или удалите старую"
+                )
+                return
+
+    await state.update_data(day=day)
+
+    await state.set_state(UserData.workout_muscle)
+
+    await message.answer("Какая группа мышц?")
+    
+@router.message(UserData.workout_muscle)
+async def workout_muscle(message: types.Message, state: FSMContext):
+
+    await state.update_data(muscle=message.text, exercises=[])
+
+    await state.set_state(UserData.workout_exercises)
+
+    await message.answer(
+        "Вводите упражнения по одному сообщению.\n"
+        "Когда закончите — нажмите ⛔ Завершить",
+        reply_markup=stop_keyboard
+    )
+    
+@router.message(UserData.workout_exercises)
+async def workout_exercises(message: types.Message, state: FSMContext):
+
+    if message.text == "⛔ Завершить":
+        data = await state.get_data()
+
+        day = data["day"]
+        muscle = data["muscle"]
+        exercises = data["exercises"]
+
+        if not exercises:
+            await message.answer("❌ Вы не добавили упражнения")
+            return
+
+        # красиво собираем
+        workout_text = f"{day}\n{muscle}\n" + "\n".join(exercises)
+
+        add_workout(message.from_user.id, workout_text)
+
+        await message.answer(
+            "✅ Тренировка сохранена!",
+            reply_markup=main_menu
+        )
+
+        await state.clear()
+        return
+
+    # если это упражнение
+    data = await state.get_data()
+    exercises = data.get("exercises", [])
+
+    exercises.append(message.text)
+
+    await state.update_data(exercises=exercises)
+
+    await message.answer("➕ Добавлено")
+        
+@router.message(lambda m: m.text == "🏋️ Тренировки")
+async def show_workouts(message: types.Message):
+
+    user = get_user(message.from_user.id)
+
+    if not user or "workouts" not in user or not user["workouts"]:
+        await message.answer("❌ У вас пока нет тренировок")
+        return
+
+    text = "🏋️ Ваши тренировки:\n\n"
+
+    day_short = {
+        "Понедельник": "Пн",
+        "Вторник": "Вт",
+        "Среда": "Ср",
+        "Четверг": "Чт",
+        "Пятница": "Пт",
+        "Суббота": "Сб",
+        "Воскресенье": "Вс"
+    }
+
+    for workout in user["workouts"]:
+        lines = workout.split("\n")
+
+        day = lines[0]
+
+        text += f"📅 {day_short.get(day, day)}\n"
+        text += "\n".join(lines[1:])
+        text += "\n\n"
+
+    await message.answer(text)
+    
     
