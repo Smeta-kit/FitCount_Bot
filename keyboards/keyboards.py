@@ -1,10 +1,12 @@
-from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
+from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📊 Мой профиль")],
+        [KeyboardButton(text="✏️ Изменить данные")],
         [KeyboardButton(text="🍽 Добавить рацион (ИИ помощник)")],
-        [KeyboardButton(text="✏️ Изменить данные")]
+        [KeyboardButton(text="🏋️ Тренировки")],
+        [KeyboardButton(text="➕ Добавить тренировку")]
     ],
     resize_keyboard=True
 )
@@ -44,4 +46,11 @@ confirm_keyboard = ReplyKeyboardMarkup(
     ],
     resize_keyboard=True,
     one_time_keyboard=True
+)
+
+stop_keyboard = ReplyKeyboardMarkup(
+    keyboard=[
+        [KeyboardButton(text="⛔ Завершить")]
+    ],
+    resize_keyboard=True
 )
