@@ -30,7 +30,6 @@ def format_value(value, name):
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 
-# старт
 @router.message(Command("start"))
 async def cmd_start(message: types.Message):
 
@@ -179,7 +178,6 @@ async def process_goal(message: types.Message, state: FSMContext):
         activity = data["activity"]
         goal = data["goal"]
 
-        # расчёт калорий
         if gender in ["мужской", "м"]:
             calories = (10 * weight + 6.25 * height - 5 * age + 5) * activity
         else:
@@ -196,7 +194,6 @@ async def process_goal(message: types.Message, state: FSMContext):
         fat = round(weight)
         carbs = round((calories * 0.40) / 4)
 
-        # ✅ СОХРАНЕНИЕ
         save_user(
             message.from_user.id,
             {
@@ -276,13 +273,13 @@ def generate_response(prompt):
 
         data = response.json()
 
-        print("API RESPONSE:", data)  # 🔍 для отладки
+        print("API RESPONSE:", data)  
 
-        # ❗ если ошибка
+       
         if "error" in data:
             return f"Ошибка API: {data['error']['message']}"
 
-        # ❗ если нет choices
+       
         if "choices" not in data:
             return "⚠️ Неверный ответ от API"
 
@@ -393,8 +390,6 @@ async def confirm_food(message: types.Message, state: FSMContext):
     
     
 ###################### ТРЕНИРОВКИ ####################
-
-# старт
 @router.message(lambda m: m.text == "➕ Добавить тренировку")
 async def start_workout(message: types.Message, state: FSMContext):
 
@@ -406,7 +401,6 @@ async def start_workout(message: types.Message, state: FSMContext):
     )
 
 
-# день недели
 @router.message(UserData.workout_day)
 async def workout_day(message: types.Message, state: FSMContext):
 
@@ -443,7 +437,6 @@ async def workout_day(message: types.Message, state: FSMContext):
 
     day = valid_days[user_input]
 
-    # ❗ проверка на дубликат
     user = get_user(message.from_user.id)
     if user and "workouts" in user:
         for workout in user["workouts"]:
@@ -482,7 +475,6 @@ async def workout_muscle(message: types.Message, state: FSMContext):
     )
 
 
-# упражнения
 @router.message(UserData.workout_exercises)
 async def workout_exercises(message: types.Message, state: FSMContext):
 
@@ -528,7 +520,6 @@ async def workout_exercises(message: types.Message, state: FSMContext):
         await state.clear()
         return
 
-    # добавление упражнения
     data = await state.get_data()
     exercises = data.get("exercises", [])
 
@@ -604,7 +595,6 @@ async def edit_workout_day(message: types.Message, state: FSMContext):
 
     workouts = user.get("workouts", [])
 
-    # ищем тренировку
     for i, workout in enumerate(workouts):
         if workout.startswith(selected_day):
             await state.update_data(edit_index=i, day=selected_day)
