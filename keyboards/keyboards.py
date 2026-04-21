@@ -3,10 +3,10 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 main_menu = ReplyKeyboardMarkup(
     keyboard=[
         [KeyboardButton(text="📊 Мой профиль")],
-        [KeyboardButton(text="✏️ Изменить данные")],
-        [KeyboardButton(text="🍽 Добавить рацион (ИИ помощник)")],
         [KeyboardButton(text="🏋️ Тренировки")],
-        [KeyboardButton(text="➕ Добавить тренировку")]
+        [KeyboardButton(text="➕ Добавить тренировку")],
+        [KeyboardButton(text="✏️ Изменить тренировку")],  
+        [KeyboardButton(text="✏️ Изменить данные")]
     ],
     resize_keyboard=True
 )
@@ -50,7 +50,8 @@ confirm_keyboard = ReplyKeyboardMarkup(
 
 stop_keyboard = ReplyKeyboardMarkup(
     keyboard=[
-        [KeyboardButton(text="⛔ Завершить")]
+        [KeyboardButton(text="⛔ Завершить")],
+        [KeyboardButton(text="❌ Отмена")]
     ],
     resize_keyboard=True
 )
