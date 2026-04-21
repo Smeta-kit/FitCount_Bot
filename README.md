@@ -57,6 +57,7 @@ Telegram-бот для подсчёта калорий, БЖУ, ведения �
 ---
 
 ## 📁 Структура проекта
+ ```
 workoutbot/
 │
 ├── handlers/
@@ -70,7 +71,7 @@ workoutbot/
 │
 └── state/
    └── state.py # FSM состояния
-
+ ```
   
 ---
 
@@ -78,7 +79,7 @@ workoutbot/
 
 ### 1. Клонировать репозиторий
 
-```bash
+bash
 git clone https://github.com/your-username/fitcount-bot.git
 cd fitcount-bot
 
