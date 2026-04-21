@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 FILE_PATH = "src/users.json"
 
 
-# 📥 загрузка всех пользователей
 def load_users():
     if not os.path.exists(FILE_PATH):
         return {}
@@ -16,14 +15,11 @@ def load_users():
     except:
         return {}
 
-
-# 💾 сохранение всех пользователей
 def save_users(users):
     with open(FILE_PATH, "w", encoding="utf-8") as f:
         json.dump(users, f, indent=4, ensure_ascii=False)
 
 
-# 👤 сохранить пользователя (создание/обновление)
 def save_user(user_id, data):
     users = load_users()
     user_id = str(user_id)
@@ -31,7 +27,6 @@ def save_user(user_id, data):
     if user_id not in users:
         users[user_id] = {}
 
-    # ✅ только нужные поля
     allowed_fields = {
         "gender",
         "height",
@@ -49,7 +44,6 @@ def save_user(user_id, data):
 
     users[user_id].update(clean_data)
 
-    # значения по умолчанию
     users[user_id].setdefault("eaten_calories", 0)
     users[user_id].setdefault("eaten_protein", 0)
     users[user_id].setdefault("eaten_fat", 0)
@@ -61,13 +55,11 @@ def save_user(user_id, data):
 
     save_users(users)
 
-# 📊 получить пользователя
 def get_user(user_id):
     users = load_users()
     return users.get(str(user_id))
 
 
-# 🍽 обновление съеденного
 def update_eaten(user_id, cals, prot, fat, carbs):
     users = load_users()
     user_id = str(user_id)
@@ -86,7 +78,6 @@ def update_eaten(user_id, cals, prot, fat, carbs):
     save_users(users)
 
 
-# 🔄 сброс каждый день
 def check_and_reset(user_id):
     users = load_users()
     user = users.get(str(user_id))
@@ -106,7 +97,6 @@ def check_and_reset(user_id):
         save_users(users)
 
 
-# 🔥 обновление стрика
 def update_streak(user_id):
     users = load_users()
     user = users.get(str(user_id))
@@ -119,7 +109,6 @@ def update_streak(user_id):
 
     remaining_calories = user["calories"] - user.get("eaten_calories", 0)
 
-    # если превысил норму — сброс
     if remaining_calories < 0:
         user["streak"] = 0
         user["last_streak_date"] = str(today)
@@ -145,8 +134,6 @@ def update_streak(user_id):
     user["last_streak_date"] = str(today)
     save_users(users)
 
-
-# 🏋️ добавить тренировку
 def add_workout(user_id, workout_text):
     users = load_users()
     user_id = str(user_id)
