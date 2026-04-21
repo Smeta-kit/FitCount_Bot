@@ -15,3 +15,4 @@ class UserData(StatesGroup):
     workout_day = State()
     workout_muscle = State()
     workout_exercises = State()
+    edit_workout_day = State()
